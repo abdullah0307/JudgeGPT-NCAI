@@ -79,10 +79,18 @@ creds_str = os.getenv("GOOGLE_CLOUD_CREDENTIALS")
 if not creds_str:
     raise RuntimeError("GOOGLE_CLOUD_CREDENTIALS not found.")
 
+# Remove leading/trailing triple quotes if present
+creds_str = creds_str.strip().strip('"""').strip()
+
+# Now parse JSON
+creds_data = json.loads(creds_str)
+
+# Write to file for GCP SDK
 with open("gcloud_key.json", "w") as f:
-    json.dump(json.loads(creds_str), f)
+    json.dump(creds_data, f)
 
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "gcloud_key.json"
+
 
 
 
@@ -130,6 +138,7 @@ def extract_pdf_text_with_vision(pdf_bytes) -> str:
                 st.error(error_msg)
 
     return "\n\n".join(all_text)
+
 
 
 
