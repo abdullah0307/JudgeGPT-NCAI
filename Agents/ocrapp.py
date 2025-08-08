@@ -86,6 +86,7 @@ os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "gcloud_key.json"
 
 
 
+
 # Step 2: Now safe to import and use Google client
 from google.cloud import vision
 def get_vision_client():
@@ -129,6 +130,7 @@ def extract_pdf_text_with_vision(pdf_bytes) -> str:
                 st.error(error_msg)
 
     return "\n\n".join(all_text)
+
 
 
 
