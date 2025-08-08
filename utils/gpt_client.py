@@ -4,7 +4,10 @@ from openai import OpenAI
 
 
 # Get the API key from Streamlit secrets
-openai_api_key = st.secrets["api_keys"]["openai"]
+import os
+
+openai_api_key = os.environ.get("OPENAI_API_KEY")
+
 
 # Properly initialize the OpenAI client
 client = OpenAI(api_key=openai_api_key)
@@ -16,3 +19,4 @@ def call_gpt4(prompt):
         temperature=0.5,
     )
     return response.choices[0].message.content.strip()
+
