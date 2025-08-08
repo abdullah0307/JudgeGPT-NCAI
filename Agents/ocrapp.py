@@ -73,20 +73,17 @@ import json
 #     json.dump(json.loads(st.secrets["google_cloud"]["credentials"]), f)
 
 
-# os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "gcloud_key.json"
 import os, json
 
 creds_str = os.getenv("GOOGLE_CLOUD_CREDENTIALS")
 if not creds_str:
     raise RuntimeError("GOOGLE_CLOUD_CREDENTIALS not found.")
 
-# Unescape so \\n becomes \n
-creds_str = creds_str.encode().decode('unicode_escape')
-
 with open("gcloud_key.json", "w") as f:
     json.dump(json.loads(creds_str), f)
 
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "gcloud_key.json"
+
 
 
 # Step 2: Now safe to import and use Google client
@@ -132,6 +129,7 @@ def extract_pdf_text_with_vision(pdf_bytes) -> str:
                 st.error(error_msg)
 
     return "\n\n".join(all_text)
+
 
 
 
