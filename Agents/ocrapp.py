@@ -74,17 +74,21 @@ import json
 
 
 # os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "gcloud_key.json"
-
 creds_str = os.getenv("GOOGLE_CLOUD_CREDENTIALS")
 if not creds_str:
     raise RuntimeError("Environment variable GOOGLE_CLOUD_CREDENTIALS not found.")
 
-# Write credentials JSON to file
+# Remove surrounding triple quotes if present
+creds_str = creds_str.strip().strip('"""').strip("'").strip('"')
+
+# Unescape \n into actual newlines
+creds_str = creds_str.encode().decode('unicode_escape')
+
 with open("gcloud_key.json", "w") as f:
     json.dump(json.loads(creds_str), f)
 
-# Point Google API client to this file
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "gcloud_key.json"
+
 # Step 2: Now safe to import and use Google client
 from google.cloud import vision
 def get_vision_client():
@@ -128,6 +132,7 @@ def extract_pdf_text_with_vision(pdf_bytes) -> str:
                 st.error(error_msg)
 
     return "\n\n".join(all_text)
+
 
 
 
