@@ -140,45 +140,40 @@
 #     return "\n\n".join(all_text)
 
 
-
 import os
 import time
 import io
 import json
 from pdf2image import convert_from_bytes
 from google.cloud import vision
+from google.oauth2 import service_account
 from PIL import Image
 import streamlit as st
 
 
-# --- Load credentials from environment variable ---
+# --- Load Vision API credentials from env ---
 creds_str = os.getenv("GOOGLE_CLOUD_CREDENTIALS")
 if not creds_str:
     raise RuntimeError("GOOGLE_CLOUD_CREDENTIALS environment variable is missing.")
 
 try:
-    # Parse JSON from environment
     creds_data = json.loads(creds_str)
 except json.JSONDecodeError as e:
     raise RuntimeError(f"Invalid JSON in GOOGLE_CLOUD_CREDENTIALS: {e}")
 
-# Write to file so Google SDK can pick it up
-with open("gcloud_key.json", "w") as f:
-    json.dump(creds_data, f)
-
-# Set the path for Google client libraries
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "gcloud_key.json"
+# Create credentials object directly from JSON
+credentials = service_account.Credentials.from_service_account_info(creds_data)
 
 
 # --- Vision client factory ---
 def get_vision_client():
-    return vision.ImageAnnotatorClient()
+    return vision.ImageAnnotatorClient(credentials=credentials)
 
 
 # --- PDF to image conversion ---
 @st.cache_resource(show_spinner="Converting PDF...")
 def convert_pdf_to_images(pdf_bytes):
-    return convert_from_bytes(pdf_bytes, dpi=300)  # High DPI for better OCR
+    return convert_from_bytes(pdf_bytes, dpi=300)  # Higher DPI for better OCR
 
 
 # --- OCR on single image ---
@@ -215,6 +210,8 @@ def extract_pdf_text_with_vision(pdf_bytes) -> str:
                 st.error(error_msg)
 
     return "\n\n".join(all_text)
+
+
 
 
 
