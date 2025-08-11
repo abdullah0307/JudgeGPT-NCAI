@@ -59,149 +59,56 @@
 
 
 
-# import os
-# import time
-# import io
-# from pdf2image import convert_from_bytes
-# from google.cloud import vision
-# from PIL import Image
-# import streamlit as st
-# import os
-# import json
-
-# # with open("gcloud_key.json", "w") as f:
-# #     json.dump(json.loads(st.secrets["google_cloud"]["credentials"]), f)
-
-
-# import os, json
-
-# creds_str = os.getenv("GOOGLE_CLOUD_CREDENTIALS")
-# if not creds_str:
-#     raise RuntimeError("GOOGLE_CLOUD_CREDENTIALS not found.")
-
-# # Remove leading/trailing triple quotes if present
-# creds_str = creds_str.strip().strip('"""').strip()
-
-# # Now parse JSON
-# creds_data = json.loads(creds_str)
-
-# # Write to file for GCP SDK
-# with open("gcloud_key.json", "w") as f:
-#     json.dump(creds_data, f)
-
-# os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "gcloud_key.json"
-
-
-
-
-
-# # Step 2: Now safe to import and use Google client
-# from google.cloud import vision
-# def get_vision_client():
-#     return vision.ImageAnnotatorClient()
-
-# # ➕ your other code here...
-
-
-# @st.cache_resource(show_spinner="Converting PDF...")
-# def convert_pdf_to_images(pdf_bytes):
-#     return convert_from_bytes(pdf_bytes, dpi=300)  # Higher DPI for better OCR
-
-# def extract_text_with_vision(image: Image.Image) -> str:
-#     client = get_vision_client() 
-#     buf = io.BytesIO()
-#     image.save(buf, format="PNG")
-#     image_bytes = buf.getvalue()
-
-#     image_vision = vision.Image(content=image_bytes)
-#     response = client.text_detection(image=image_vision)
-
-#     if response.error.message:
-#         raise Exception(f"Vision API error: {response.error.message}")
-
-#     texts = response.text_annotations
-#     return texts[0].description if texts else "(No text detected)"
-
-# def extract_pdf_text_with_vision(pdf_bytes) -> str:
-#     images = convert_pdf_to_images(pdf_bytes)
-#     all_text = []
-
-#     for i, img in enumerate(images):
-#         with st.spinner(f"🔍 Processing page {i + 1}..."):
-#             try:
-#                 page_text = extract_text_with_vision(img)
-#                 all_text.append(f"--- Page {i + 1} ---\n{page_text.strip()}")
-#                 time.sleep(0.5)  # Respect API quota
-#             except Exception as e:
-#                 error_msg = f"[Error on page {i + 1}]: {e}"
-#                 all_text.append(error_msg)
-#                 st.error(error_msg)
-
-#     return "\n\n".join(all_text)
-
 import os
 import time
 import io
-import json
 from pdf2image import convert_from_bytes
 from google.cloud import vision
 from PIL import Image
 import streamlit as st
+import os
+import json
+
+# with open("gcloud_key.json", "w") as f:
+#     json.dump(json.loads(st.secrets["google_cloud"]["credentials"]), f)
 
 
-# --- Load credentials from environment variable ---
+import os, json
+
 creds_str = os.getenv("GOOGLE_CLOUD_CREDENTIALS")
 if not creds_str:
-    raise RuntimeError("GOOGLE_CLOUD_CREDENTIALS environment variable is missing.")
+    raise RuntimeError("GOOGLE_CLOUD_CREDENTIALS not found.")
 
-# Debug: Show first/last 100 characters of env var to avoid printing full private key
-print("DEBUG: GOOGLE_CLOUD_CREDENTIALS length:", len(creds_str))
-print("DEBUG: GOOGLE_CLOUD_CREDENTIALS preview start:", creds_str[:100])
-print("DEBUG: GOOGLE_CLOUD_CREDENTIALS preview end:", creds_str[-100:])
-
-# Remove leading/trailing triple quotes if accidentally pasted
+# Remove leading/trailing triple quotes if present
 creds_str = creds_str.strip().strip('"""').strip()
 
-try:
-    creds_data = json.loads(creds_str)
-except json.JSONDecodeError as e:
-    print("DEBUG: JSON decode failed with:", e)
-    raise
-
-# Debug: Check top-level keys in parsed JSON
-print("DEBUG: Parsed creds_data keys:", list(creds_data.keys()))
+# Now parse JSON
+creds_data = json.loads(creds_str)
 
 # Write to file for GCP SDK
 with open("gcloud_key.json", "w") as f:
     json.dump(creds_data, f)
 
-# Debug: Verify file exists and has valid JSON
-if os.path.exists("gcloud_key.json"):
-    with open("gcloud_key.json") as f:
-        try:
-            test_data = json.load(f)
-            print("DEBUG: gcloud_key.json keys:", list(test_data.keys()))
-        except json.JSONDecodeError as e:
-            print("DEBUG: gcloud_key.json is invalid JSON:", e)
-
-# Set path for Google client libraries
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "gcloud_key.json"
 
 
-# --- Vision client factory ---
+
+
+
+# Step 2: Now safe to import and use Google client
+from google.cloud import vision
 def get_vision_client():
     return vision.ImageAnnotatorClient()
 
+# ➕ your other code here...
 
-# --- PDF to image conversion ---
+
 @st.cache_resource(show_spinner="Converting PDF...")
 def convert_pdf_to_images(pdf_bytes):
-    return convert_from_bytes(pdf_bytes, dpi=300)  # High DPI for better OCR
+    return convert_from_bytes(pdf_bytes, dpi=300)  # Higher DPI for better OCR
 
-
-# --- OCR on single image ---
 def extract_text_with_vision(image: Image.Image) -> str:
-    client = get_vision_client()
+    client = get_vision_client() 
     buf = io.BytesIO()
     image.save(buf, format="PNG")
     image_bytes = buf.getvalue()
@@ -215,8 +122,6 @@ def extract_text_with_vision(image: Image.Image) -> str:
     texts = response.text_annotations
     return texts[0].description if texts else "(No text detected)"
 
-
-# --- OCR on entire PDF ---
 def extract_pdf_text_with_vision(pdf_bytes) -> str:
     images = convert_pdf_to_images(pdf_bytes)
     all_text = []
@@ -233,6 +138,9 @@ def extract_pdf_text_with_vision(pdf_bytes) -> str:
                 st.error(error_msg)
 
     return "\n\n".join(all_text)
+
+
+
 
 
 
