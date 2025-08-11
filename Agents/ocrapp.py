@@ -151,66 +151,32 @@ from pdf2image import convert_from_bytes
 from google.cloud import vision
 from PIL import Image
 import streamlit as st
-import os
-import json
-import os
-import json
+import os, json
 
-# Step 1: Load from env
 creds_str = os.getenv("GOOGLE_CLOUD_CREDENTIALS")
 if not creds_str:
     raise RuntimeError("GOOGLE_CLOUD_CREDENTIALS not found.")
 
-print("DEBUG: Raw env var length:", len(creds_str))
-print("DEBUG: Raw start preview:", creds_str[:80].replace("\n", "\\n"))
-print("DEBUG: Raw end preview:", creds_str[-80:].replace("\n", "\\n"))
+print("DEBUG: Raw length:", len(creds_str))
 
-# Step 2: Convert escaped newlines to actual newlines
+# Convert escaped newlines to real newlines
 if "\\n" in creds_str:
-    print("DEBUG: Escaped \\n detected — converting to real newlines")
+    print("DEBUG: Found escaped newlines — converting")
     creds_str = creds_str.replace("\\n", "\n")
 
-creds_str = creds_str.strip()
+# Parse JSON
+creds_data = json.loads(creds_str)
 
-# Step 3: Parse JSON
-try:
-    creds_data = json.loads(creds_str)
-except json.JSONDecodeError as e:
-    print("ERROR: Failed to decode credentials JSON:", e)
-    raise
+print("DEBUG: Keys:", list(creds_data.keys()))
+print("DEBUG: private_key first line:", creds_data["private_key"].split("\n", 1)[0])
+print("DEBUG: private_key last line:", creds_data["private_key"].strip().split("\n")[-1])
 
-print("DEBUG: Parsed credential keys:", list(creds_data.keys()))
-
-# Step 4: Validate critical fields
-required_fields = ["type", "private_key", "client_email"]
-for field in required_fields:
-    if field not in creds_data or not creds_data[field].strip():
-        raise RuntimeError(f"ERROR: Missing or empty '{field}' in credentials")
-
-# Step 5: Check private_key format
-pk_lines = creds_data["private_key"].split("\n")
-print("DEBUG: private_key first line:", pk_lines[0])
-print("DEBUG: private_key last line:", pk_lines[-1])
-print("DEBUG: private_key total lines:", len(pk_lines))
-
-if not pk_lines[0].startswith("-----BEGIN PRIVATE KEY-----") or \
-   not pk_lines[-1].startswith("-----END PRIVATE KEY-----"):
-    raise RuntimeError("ERROR: private_key is not in PEM format with real newlines")
-
-# Step 6: Write to file
+# Save to file
 with open("gcloud_key.json", "w") as f:
     json.dump(creds_data, f)
 
-print("DEBUG: gcloud_key.json written successfully.")
-
-# Step 7: Re-parse to confirm
-with open("gcloud_key.json") as f:
-    parsed = json.load(f)
-    print("DEBUG: Reloaded file keys:", list(parsed.keys()))
-
-# Step 8: Set env var
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "gcloud_key.json"
-print("DEBUG: GOOGLE_APPLICATION_CREDENTIALS set.")
+
 
 
 
@@ -257,6 +223,7 @@ def extract_pdf_text_with_vision(pdf_bytes) -> str:
                 st.error(error_msg)
 
     return "\n\n".join(all_text)
+
 
 
 
