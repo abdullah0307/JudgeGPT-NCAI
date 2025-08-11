@@ -151,56 +151,63 @@ from pdf2image import convert_from_bytes
 from google.cloud import vision
 from PIL import Image
 import streamlit as st
-
+import os
+import json
 
 # --- Load GOOGLE_CLOUD_CREDENTIALS from env ---
 creds_str = os.getenv("GOOGLE_CLOUD_CREDENTIALS")
 if not creds_str:
     raise RuntimeError("GOOGLE_CLOUD_CREDENTIALS not found.")
 
-# Debug: show safe preview of the raw value
-print("DEBUG: GOOGLE_CLOUD_CREDENTIALS length:", len(creds_str))
-print("DEBUG: GOOGLE_CLOUD_CREDENTIALS start preview:", creds_str[:100])
-print("DEBUG: GOOGLE_CLOUD_CREDENTIALS end preview:", creds_str[-100:])
+# Debug: Show safe preview (no sensitive content)
+print("DEBUG: Raw env length:", len(creds_str))
+print("DEBUG: Raw env start preview:", creds_str[:80].replace("\n", "\\n"))
+print("DEBUG: Raw env end preview:", creds_str[-80:].replace("\n", "\\n"))
 
-# Remove leading/trailing triple quotes if present
-creds_str = creds_str.strip().strip('"""').strip()
+# Ensure escaped '\n' become real newlines
+if "\\n" in creds_str:
+    print("DEBUG: Detected escaped \\n — converting to real newlines")
+    creds_str = creds_str.replace("\\n", "\n")
 
-# Debug: show safe preview after stripping
-print("DEBUG: After stripping triple quotes, length:", len(creds_str))
-print("DEBUG: After stripping, start preview:", creds_str[:100])
-print("DEBUG: After stripping, end preview:", creds_str[-100:])
+# Trim any leading/trailing whitespace
+creds_str = creds_str.strip()
 
-# Now parse JSON
+# Try to parse JSON
 try:
     creds_data = json.loads(creds_str)
 except json.JSONDecodeError as e:
-    print("DEBUG: Failed to decode JSON:", e)
+    print("ERROR: Failed to decode GOOGLE_CLOUD_CREDENTIALS JSON:", e)
     raise
 
-# Debug: check top-level keys in parsed credentials
+# Debug: Show top-level keys
 print("DEBUG: Parsed credential keys:", list(creds_data.keys()))
-if "private_key" not in creds_data:
-    print("WARNING: 'private_key' field is missing from credentials!")
 
-# Write to file for GCP SDK
+# Verify required keys exist
+required_keys = ["type", "private_key", "client_email"]
+for key in required_keys:
+    if key not in creds_data or not creds_data[key]:
+        raise RuntimeError(f"ERROR: '{key}' is missing or empty in credentials!")
+
+print("DEBUG: private_key length:", len(creds_data["private_key"]))
+print("DEBUG: private_key first line:", creds_data["private_key"].split("\n", 1)[0])
+
+# Write to file
 with open("gcloud_key.json", "w") as f:
     json.dump(creds_data, f)
 
-# Debug: confirm file was written and has valid JSON
+# Debug: Confirm file exists and is valid JSON
 if os.path.exists("gcloud_key.json"):
-    print("DEBUG: gcloud_key.json file exists.")
-    try:
-        with open("gcloud_key.json") as f:
-            parsed_file = json.load(f)
-            print("DEBUG: gcloud_key.json keys:", list(parsed_file.keys()))
-    except json.JSONDecodeError as e:
-        print("DEBUG: gcloud_key.json contains invalid JSON:", e)
+    print("DEBUG: gcloud_key.json file created successfully.")
+    with open("gcloud_key.json") as f:
+        parsed_file = json.load(f)
+        print("DEBUG: gcloud_key.json keys:", list(parsed_file.keys()))
 else:
-    print("ERROR: gcloud_key.json file was not created!")
+    raise RuntimeError("ERROR: gcloud_key.json was not created!")
 
-# Set environment variable for Google SDK
+# Set env var for Google SDK
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "gcloud_key.json"
+print("DEBUG: GOOGLE_APPLICATION_CREDENTIALS set to gcloud_key.json")
+
 
 
 # Step 2: Now safe to import and use Google client
@@ -245,6 +252,7 @@ def extract_pdf_text_with_vision(pdf_bytes) -> str:
                 st.error(error_msg)
 
     return "\n\n".join(all_text)
+
 
 
 
