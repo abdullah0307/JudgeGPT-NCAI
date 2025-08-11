@@ -139,41 +139,64 @@
 
 #     return "\n\n".join(all_text)
 
-
 import os
 import time
 import io
 import json
 from pdf2image import convert_from_bytes
 from google.cloud import vision
-from google.oauth2 import service_account
 from PIL import Image
 import streamlit as st
 
 
-# --- Load Vision API credentials from env ---
+# --- Load credentials from environment variable ---
 creds_str = os.getenv("GOOGLE_CLOUD_CREDENTIALS")
 if not creds_str:
     raise RuntimeError("GOOGLE_CLOUD_CREDENTIALS environment variable is missing.")
 
+# Debug: Show first/last 100 characters of env var to avoid printing full private key
+print("DEBUG: GOOGLE_CLOUD_CREDENTIALS length:", len(creds_str))
+print("DEBUG: GOOGLE_CLOUD_CREDENTIALS preview start:", creds_str[:100])
+print("DEBUG: GOOGLE_CLOUD_CREDENTIALS preview end:", creds_str[-100:])
+
+# Remove leading/trailing triple quotes if accidentally pasted
+creds_str = creds_str.strip().strip('"""').strip()
+
 try:
     creds_data = json.loads(creds_str)
 except json.JSONDecodeError as e:
-    raise RuntimeError(f"Invalid JSON in GOOGLE_CLOUD_CREDENTIALS: {e}")
+    print("DEBUG: JSON decode failed with:", e)
+    raise
 
-# Create credentials object directly from JSON
-credentials = service_account.Credentials.from_service_account_info(creds_data)
+# Debug: Check top-level keys in parsed JSON
+print("DEBUG: Parsed creds_data keys:", list(creds_data.keys()))
+
+# Write to file for GCP SDK
+with open("gcloud_key.json", "w") as f:
+    json.dump(creds_data, f)
+
+# Debug: Verify file exists and has valid JSON
+if os.path.exists("gcloud_key.json"):
+    with open("gcloud_key.json") as f:
+        try:
+            test_data = json.load(f)
+            print("DEBUG: gcloud_key.json keys:", list(test_data.keys()))
+        except json.JSONDecodeError as e:
+            print("DEBUG: gcloud_key.json is invalid JSON:", e)
+
+# Set path for Google client libraries
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "gcloud_key.json"
 
 
 # --- Vision client factory ---
 def get_vision_client():
-    return vision.ImageAnnotatorClient(credentials=credentials)
+    return vision.ImageAnnotatorClient()
 
 
 # --- PDF to image conversion ---
 @st.cache_resource(show_spinner="Converting PDF...")
 def convert_pdf_to_images(pdf_bytes):
-    return convert_from_bytes(pdf_bytes, dpi=300)  # Higher DPI for better OCR
+    return convert_from_bytes(pdf_bytes, dpi=300)  # High DPI for better OCR
 
 
 # --- OCR on single image ---
@@ -210,6 +233,8 @@ def extract_pdf_text_with_vision(pdf_bytes) -> str:
                 st.error(error_msg)
 
     return "\n\n".join(all_text)
+
+
 
 
 
