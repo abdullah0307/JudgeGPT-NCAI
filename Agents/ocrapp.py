@@ -151,31 +151,59 @@ from pdf2image import convert_from_bytes
 from google.cloud import vision
 from PIL import Image
 import streamlit as st
-import os, json
+import os
+import json
 
+# --- Load GOOGLE_CLOUD_CREDENTIALS from env ---
 creds_str = os.getenv("GOOGLE_CLOUD_CREDENTIALS")
 if not creds_str:
     raise RuntimeError("GOOGLE_CLOUD_CREDENTIALS not found.")
 
-print("DEBUG: Raw length:", len(creds_str))
+print("DEBUG: Raw env var length:", len(creds_str))
+print("DEBUG: Raw start preview:", creds_str[:80].replace("\n", "\\n"))
+print("DEBUG: Raw end preview:", creds_str[-80:].replace("\n", "\\n"))
 
-# Convert escaped newlines to real newlines
+# --- Convert escaped newlines to real newlines ---
 if "\\n" in creds_str:
-    print("DEBUG: Found escaped newlines — converting")
+    print("DEBUG: Escaped \\n detected — converting to real newlines")
     creds_str = creds_str.replace("\\n", "\n")
 
-# Parse JSON
-creds_data = json.loads(creds_str)
+# --- Parse JSON ---
+try:
+    creds_data = json.loads(creds_str)
+except json.JSONDecodeError as e:
+    raise RuntimeError(f"ERROR: Failed to decode credentials JSON: {e}")
 
-print("DEBUG: Keys:", list(creds_data.keys()))
-print("DEBUG: private_key first line:", creds_data["private_key"].split("\n", 1)[0])
-print("DEBUG: private_key last line:", creds_data["private_key"].strip().split("\n")[-1])
+print("DEBUG: Parsed keys:", list(creds_data.keys()))
 
-# Save to file
+# --- Validate private_key field ---
+private_key = creds_data.get("private_key", "").strip()
+if not private_key:
+    raise RuntimeError("ERROR: 'private_key' is missing or empty")
+
+pk_lines = private_key.split("\n")
+print("DEBUG: private_key first line:", pk_lines[0])
+print("DEBUG: private_key last line:", pk_lines[-1])
+print("DEBUG: private_key total lines:", len(pk_lines))
+
+if not (pk_lines[0].startswith("-----BEGIN PRIVATE KEY-----") and
+        pk_lines[-1].startswith("-----END PRIVATE KEY-----")):
+    raise RuntimeError("ERROR: private_key format is invalid — missing BEGIN/END lines or real newlines")
+
+# --- Write credentials to file ---
 with open("gcloud_key.json", "w") as f:
     json.dump(creds_data, f)
 
+print("DEBUG: gcloud_key.json written successfully.")
+
+# --- Verify file contents ---
+with open("gcloud_key.json") as f:
+    parsed_file = json.load(f)
+    print("DEBUG: Reloaded gcloud_key.json keys:", list(parsed_file.keys()))
+
+# --- Set env var for Google SDK ---
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "gcloud_key.json"
+print("DEBUG: GOOGLE_APPLICATION_CREDENTIALS set to gcloud_key.json")
 
 
 
@@ -223,6 +251,7 @@ def extract_pdf_text_with_vision(pdf_bytes) -> str:
                 st.error(error_msg)
 
     return "\n\n".join(all_text)
+
 
 
 
