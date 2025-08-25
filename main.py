@@ -256,7 +256,7 @@
 #     st.session_state.chat_titles[chat_id] = generate_chat_title(query) or "Untitled Case"
 #     st.rerun()
 
-
+# app.py
 import streamlit as st
 from prompt_router import handle_user_input
 from utils import intent_classifier
@@ -267,89 +267,71 @@ from PyPDF2 import PdfReader
 from io import BytesIO
 import uuid, hashlib, re
 
-# ==========================
-# Page config
-# ==========================
-st.set_page_config(
-    page_title="PakLaw Judicial Assistant",
-    page_icon="⚖️",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
+# ---- page config ----
+st.set_page_config(page_title="PakLaw Judicial Assistant", page_icon="⚖️", layout="wide", initial_sidebar_state="expanded")
 
-# ==========================
-# CSS — ChatGPT-style UI
-# ==========================
+# ---- CSS (ChatGPT-like) ----
 st.markdown(
     """
 <style>
-:root {
-  --gpt-bg: #f7f7f8;
-  --gpt-surface: #ffffff;
-  --gpt-bubble: #f2f2f2; /* assistant */
-  --gpt-text: #111827;
-  --gpt-accent: #10a37f; /* OpenAI green */
+:root{
+  --bg: #f7f7f8;
+  --surface: #ffffff;
+  --assistant-bubble: #f2f2f2;
+  --text: #0b1221;
+  --muted: #6b7280;
+  --accent: #10a37f; /* kept accent but not used on send button */
   --radius: 18px;
 }
 
-html, body, .main { background: var(--gpt-bg); }
+/* page background and center column */
+html, body, .main { background: var(--bg); }
+.block-container { max-width: 880px; margin: 0 auto; padding-top: 14px; padding-bottom: 120px; }
 
-/* center column like ChatGPT */
-.block-container {
-  max-width: 860px;
-  margin: 0 auto;
-  padding-top: 1rem;
-  padding-bottom: 7.5rem; /* space for sticky bar */
-}
+/* Sidebar style (neutral like GPT) */
+[data-testid="stSidebar"] { background: var(--surface); border-right: 1px solid #e6e6e9; }
+.stButton>button, .stMarkdown { font-family: inherit; }
 
-/* Sidebar minimal */
-[data-testid="stSidebar"] {
-  background: var(--gpt-surface);
-  border-right: 1px solid #e5e7eb;
-}
+/* chat area */
+.chat-wrap { display:flex; flex-direction:column; gap:12px; padding: 8px 14px 40px 14px; }
+.msg { padding: 12px 16px; border-radius: 14px; max-width: 78%; line-height:1.5; font-size: 15px; box-shadow: 0 1px 0 rgba(16,24,40,0.03); }
+.msg.assistant { background: var(--assistant-bubble); color: var(--text); align-self: flex-start; }
+.msg.user { background: var(--surface); border: 1px solid #ececec; color: var(--text); align-self: flex-end; }
 
-/* Header */
-h1, h3, h4 { color: var(--gpt-text); }
-
-/* Chat messages */
-.chat-wrap { display: flex; flex-direction: column; gap: 12px; }
-.msg { padding: .9rem 1.1rem; border-radius: var(--radius); line-height: 1.6; font-size: 0.98rem; }
-.msg.assistant { background: var(--gpt-bubble); color: #111; align-self: flex-start; }
-.msg.user { background: #fff; border: 1px solid #e5e7eb; align-self: flex-end; }
-.msg strong { font-weight: 600; }
-
-/* Sticky bottom input like GPT */
-.gpt-input-bar { position: fixed; left: 0; right: 0; bottom: 0; background: linear-gradient(180deg, rgba(247,247,248,0) 0%, var(--gpt-bg) 40%, var(--gpt-bg) 100%); padding: 10px 0 18px; }
-.gpt-input-inner { max-width: 860px; margin: 0 auto; display: flex; align-items: flex-end; gap: 10px; padding: 0 16px; }
+/* input bar wrapper like GPT */
+.gpt-input-bar { position: fixed; left: 0; right: 0; bottom: 0; padding: 14px 0; background: linear-gradient(transparent, var(--bg)); z-index: 999; }
+.gpt-inner { max-width: 880px; margin: 0 auto; display:flex; gap:12px; align-items:flex-end; padding: 0 16px; }
 
 /* input shell */
-.input-shell { flex: 1; background: var(--gpt-surface); border: 1px solid #e5e7eb; border-radius: 24px; display: flex; align-items: flex-end; gap: 8px; padding: 10px; box-shadow: 0 2px 10px rgba(0,0,0,.04); }
-.attach-btn { border: none; background: transparent; font-size: 20px; padding: 6px 8px; cursor: pointer; color: #555; border-radius: 10px; }
-.attach-btn:hover { background: #f2f2f2; }
+.input-shell { flex: 1; background: var(--surface); border: 1px solid #e8eaed; border-radius: 24px; padding: 10px; display:flex; gap:8px; align-items:flex-end; box-shadow: 0 6px 16px rgba(15,23,42,0.04); }
 
-/* Streamlit widgets inside shell */
-textarea[data-baseweb="textarea"], .stTextArea textarea { width: 100% !important; border: none !important; outline: none !important; resize: none !important; box-shadow: none !important; background: transparent !important; font-size: 1rem !important; min-height: 60px !important; }
+/* left attach button */
+#gpt-attach-btn { width:36px; height:36px; border-radius:10px; display:inline-flex; align-items:center; justify-content:center; border:none; background:transparent; cursor:pointer; color:#444; font-size:18px; }
+#gpt-attach-btn:hover { background:#f2f2f2; }
 
-/* Send button */
-.send-btn { border: none; background: var(--gpt-accent); color: white; padding: 10px 14px; border-radius: 14px; font-weight: 600; cursor: pointer; }
-.send-btn:hover { filter: brightness(0.95); }
+/* textarea look inside streamlit */
+textarea[role="textbox"], .stTextArea textarea { width:100% !important; height: 64px !important; resize:none; border:none !important; outline:none !important; background:transparent !important; font-size:15px !important; padding:6px 0 !important; }
 
-/* Hide the uploader visually but keep in DOM */
-.hidden-uploader [data-testid="stFileUploader"] { height: 0; overflow: hidden; }
-.hidden-uploader [data-testid="stFileUploader"] > div { display: none; }
+/* send circular gray button (paper plane) */
+#gpt-send-btn { width:44px; height:44px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; border:none; cursor:pointer; background:#eef1f3; color:#111; box-shadow: 0 1px 0 rgba(16,24,40,0.03); }
+#gpt-send-btn:hover { background:#e2e6e9; transform: translateY(-1px); }
 
-/* File chip */
-.file-chip { display: inline-flex; align-items: center; gap: 8px; background: #eef2f7; color: #222; border: 1px solid #e5e7eb; padding: 6px 10px; border-radius: 999px; font-size: .85rem; margin: 0 0 8px 16px; }
-.file-chip .x { cursor: pointer; opacity: .7; }
-.file-chip .x:hover { opacity: 1; }
+/* file chip displayed above input area */
+.file-chip { display:inline-flex; align-items:center; gap:8px; background:#eef2f7; padding:6px 10px; border-radius:999px; font-size:13px; margin-bottom:8px; color:#111; border:1px solid #e6eef7; }
+.file-chip .x { cursor:pointer; opacity:0.7; }
+.file-chip .x:hover { opacity:1; }
+
+/* hide the internal/hidden control buttons (we hide them via JS too) */
+.hidden-btn { display:none !important; }
+
+/* small helpers for spacing near header */
+.title-row { display:flex; align-items:center; gap:12px; }
 </style>
 """,
     unsafe_allow_html=True,
 )
 
-# ==========================
-# Session state
-# ==========================
+# ---- session state ----
 ss = st.session_state
 if "chats" not in ss: ss.chats = {}
 if "chat_titles" not in ss: ss.chat_titles = {}
@@ -361,13 +343,12 @@ if "current_chat" not in ss:
 if "uploaded_case_text" not in ss: ss.uploaded_case_text = ""
 if "last_uploaded_file_hash" not in ss: ss.last_uploaded_file_hash = None
 if "uploaded_filename" not in ss: ss.uploaded_filename = None
-if "pending_text" not in ss: ss.pending_text = ""
+if "chat_input_temp" not in ss: ss.chat_input_temp = ""
 
-# ==========================
-# Sidebar
-# ==========================
+# ---- sidebar ----
 with st.sidebar:
     st.markdown("### 📁 Case Files")
+    # neutral card-like new case button
     if st.button("➕ New Case", use_container_width=True):
         cid = str(uuid.uuid4())
         ss.current_chat = cid
@@ -376,161 +357,182 @@ with st.sidebar:
         ss.uploaded_case_text = ""
         ss.uploaded_filename = None
         ss.last_uploaded_file_hash = None
-        st.rerun()
+        st.experimental_rerun()
 
+    # existing cases
     for cid in list(ss.chats.keys()):
         title = ss.chat_titles.get(cid, f"Case {cid[:8]}")
         if st.button(title, key=f"chat_{cid}", use_container_width=True):
             ss.current_chat = cid
-            st.rerun()
+            st.experimental_rerun()
 
-# ==========================
-# Header
-# ==========================
-st.title("⚖️ PakLaw Judicial Assistant")
+# ---- header ----
+st.markdown('<div class="title-row"><h1 style="margin:0">⚖️ PakLaw Judicial Assistant</h1></div>', unsafe_allow_html=True)
 st.caption("Interactive legal assistant for Pakistan’s judicial system.")
 st.markdown("### 📜 Case Discussion & Judgments")
 
-# ==========================
-# Chat area
-# ==========================
+# ---- chat area ----
 chat_id = ss.current_chat
 current_chat = ss.chats[chat_id]
 
-wrap = st.container()
-with wrap:
+chat_container = st.container()
+with chat_container:
     st.markdown('<div class="chat-wrap">', unsafe_allow_html=True)
+    # initial placeholder if empty
+    if not current_chat:
+        intro = "Hello! I’m the PakLaw assistant — ask me about cases, generate judgments, or upload a case file using the + button below."
+        current_chat.append({"role": "assistant", "message": intro})
     for idx, msg in enumerate(current_chat):
         if msg["role"] == "user":
-            st.markdown(f"<div class='msg user'>{msg['message']}</div>", unsafe_allow_html=True)
+            # user bubble (right)
+            st.markdown(f'<div class="msg user">{msg["message"]}</div>', unsafe_allow_html=True)
         else:
-            html = re.sub(r"(?m)^([A-Z][a-z]+):", r"<strong>\\1:</strong>", msg["message"]).replace("\n", "<br>")
-            st.markdown(f"<div class='msg assistant'>{html}</div>", unsafe_allow_html=True)
-            download_agent.show_download_if_applicable(idx, current_chat, intent_classifier.classify_prompt_intent)
+            # assistant bubble (left), keep any "Judge:" labels bold etc.
+            html = re.sub(r"(?m)^([A-Z][a-z]+):", r"<strong>\1:</strong>", msg["message"])
+            html = html.replace("\n", "<br>")
+            st.markdown(f'<div class="msg assistant">{html}</div>', unsafe_allow_html=True)
+            # show download if applicable (keeps your existing functionality)
+            try:
+                download_agent.show_download_if_applicable(idx, current_chat, intent_classifier.classify_prompt_intent)
+            except Exception:
+                pass
     st.markdown('</div>', unsafe_allow_html=True)
 
-# ==========================
-# Sticky input bar (GPT-like)
-# ==========================
-st.markdown('<div class="gpt-input-bar"><div class="gpt-input-inner">', unsafe_allow_html=True)
+# ---- sticky GPT-like input bar ----
+# We'll put a hidden file_uploader in DOM, trigger it from the + button using JS.
+st.markdown('<div class="gpt-input-bar"><div class="gpt-inner">', unsafe_allow_html=True)
 
-# Hidden uploader lives in the DOM; we trigger it from the + button via JS
-uploader_col, input_col, send_col = st.columns([0.0001, 0.93, 0.07])
-with uploader_col:
-    st.markdown('<div class="hidden-uploader">', unsafe_allow_html=True)
-    uploaded_file = st.file_uploader(
-        "Upload Case File (.txt or .pdf)",
-        type=["txt", "pdf"],
-        accept_multiple_files=False,
-        label_visibility="collapsed",
-        key="case_file",
-    )
-    st.markdown('</div>', unsafe_allow_html=True)
+# Columns layout for attach / input / send (visual)
+col_attach, col_input, col_send = st.columns([0.06, 0.88, 0.06])
 
-with input_col:
-    # file chip (like GPT shows above input)
+with col_attach:
+    # visible attach button (HTML) — triggers file input via JS
+    st.markdown('<button id="gpt-attach-btn" title="Attach file">+</button>', unsafe_allow_html=True)
+
+with col_input:
+    # file chip area (shows uploaded file name and remove X)
     if ss.uploaded_filename:
-        st.markdown(
-            f"<div class='file-chip'>📎 {ss.uploaded_filename} <span class='x' id='remove-file' title='Remove'>&times;</span></div>",
-            unsafe_allow_html=True,
-        )
-    with st.form("chat_form", clear_on_submit=True):
-        ss.pending_text = st.text_area(
-            "Type your message",
-            value="",
-            placeholder="Message PakLaw…",
-            label_visibility="collapsed",
-            key="chat_textarea",
-            height=70,
-        )
-        submitted = st.form_submit_button("__HIDDEN_SEND__")  # hidden, clicked via JS or Enter
+        st.markdown(f'<div class="file-chip">📎 {ss.uploaded_filename}<span class="x" id="remove-file" title="Remove">&times;</span></div>', unsafe_allow_html=True)
 
-with send_col:
-    # Visible Send button (mirrors the hidden submit)
-    send_clicked = st.button("Send", key="send_btn_vis", use_container_width=True)
+    # hidden file_uploader element (kept in DOM)
+    # place it here so its input is present; we'll keep it visually hidden via CSS (but not necessary)
+    uploaded_file = st.file_uploader("Upload Case File (.txt or .pdf)", type=["txt", "pdf"], key="case_file", label_visibility="collapsed")
+
+    # the main form: text_area + hidden submit
+    with st.form("chat_form", clear_on_submit=True):
+        ss.chat_input_temp = st.text_area("Message", value="", placeholder="Message PakLaw…", key="chat_textarea", label_visibility="collapsed", height=64)
+        # hidden submit button (we will hide it via JS immediately)
+        hidden_submit = st.form_submit_button("__SEND_HIDDEN__")
+
+with col_send:
+    # visible send circular button (HTML) with paper plane SVG => triggers hidden_submit via JS
+    send_html = """
+    <button id="gpt-send-btn" title="Send">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" 
+           stroke-linecap="round" stroke-linejoin="round" style="display:block">
+        <path d="M22 2L11 13"></path>
+        <path d="M22 2L15 22L11 13L2 9L22 2Z"></path>
+      </svg>
+    </button>
+    """
+    st.markdown(send_html, unsafe_allow_html=True)
 
 st.markdown('</div></div>', unsafe_allow_html=True)
 
-# ==========================
-# JS: map + to file input, Enter to send, remove-chip
-# ==========================
+# Hidden clear button to remove uploaded file (server side)
+clear_clicked = st.button("__CLEAR_FILE__", key="__clear_file_hidden__", help="internal", visible=False) if hasattr(st, 'button') else False
+# Note: some Streamlit versions don't support visible=False; we include button and hide it via JS style anyway.
+# We'll handle actual clearing below based on file uploader changes or clear button.
+
+# ---- JS wiring: attach + enter-to-send + hide hidden submit + connect visible send to hidden submit + remove chip ----
 st.markdown(
     """
 <script>
-(function() {
+(function(){
+  // operate on parent document (Streamlit renders in an iframe)
   const root = window.parent.document;
-  // Click the first file input when + is pressed
-  function wireAttach() {
-    const plusBtn = root.querySelector('.attach-btn');
-    const fileInputs = root.querySelectorAll('input[type="file"]');
-    if (plusBtn && fileInputs.length) {
-      plusBtn.addEventListener('click', function() { fileInputs[fileInputs.length-1].click(); });
-    }
+
+  function findHiddenSubmit() {
+    const buttons = Array.from(root.querySelectorAll('button'));
+    return buttons.find(b => b.innerText && b.innerText.trim() === '__SEND_HIDDEN__');
   }
-  // Make our Streamlit Send button behave like GPT: Enter send, Shift+Enter newline
-  function wireEnterToSend() {
-    const ta = root.querySelector('textarea');
-    const visBtn = root.querySelector('button[kind="secondary"]:contains("Send")');
+  function findClearBtn() {
+    const buttons = Array.from(root.querySelectorAll('button'));
+    return buttons.find(b => b.innerText && b.innerText.trim() === '__CLEAR_FILE__');
   }
 
-  // A safer generic implementation that doesn't rely on labels:
-  function wireGeneric() {
-    const textareas = root.querySelectorAll('textarea');
-    const sendButtons = Array.from(root.querySelectorAll('button'));
-    const hiddenSubmit = sendButtons.find(b => b.innerText === '__HIDDEN_SEND__');
-    const visibleSend = sendButtons.find(b => b.innerText.trim() === 'Send');
+  setTimeout(()=> {
+    try {
+      const attachBtn = root.getElementById('gpt-attach-btn');
+      const sendBtn = root.getElementById('gpt-send-btn');
+      const hiddenSubmit = findHiddenSubmit();
+      const clearBtn = findClearBtn();
 
-    const ta = textareas[textareas.length-1];
-    if (ta && hiddenSubmit) {
-      ta.addEventListener('keydown', function(e){
-        if (e.key === 'Enter' && !e.shiftKey) {
-          e.preventDefault();
-          hiddenSubmit.click();
+      // hide the hidden submit (it exists inside the form)
+      if (hiddenSubmit) { hiddenSubmit.style.display = 'none'; }
+
+      // wire visible send to hidden submit
+      if (sendBtn && hiddenSubmit) {
+        sendBtn.addEventListener('click', function(e){ hiddenSubmit.click(); });
+      }
+
+      // wire Enter (no Shift) inside the last textarea to submit
+      const textareas = root.querySelectorAll('textarea');
+      if (textareas && textareas.length) {
+        const ta = textareas[textareas.length - 1];
+        ta.addEventListener('keydown', function(e){
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            if (hiddenSubmit) hiddenSubmit.click();
+          }
+        });
+      }
+
+      // wire attach button to last file input in DOM
+      if (attachBtn) {
+        const fileInputs = root.querySelectorAll('input[type=file]');
+        if (fileInputs && fileInputs.length) {
+          const fileInput = fileInputs[fileInputs.length - 1];
+          attachBtn.addEventListener('click', function(){ fileInput.click(); });
         }
-      });
-    }
-    if (visibleSend && hiddenSubmit) {
-      visibleSend.addEventListener('click', function(){ hiddenSubmit.click(); });
-    }
+      }
 
-    // Remove chip
-    const x = root.getElementById('remove-file');
-    if (x) {
-      x.addEventListener('click', function(){
-        window.parent.postMessage({type:'clear-file'}, '*');
-      });
+      // wire remove-file chip: trigger server-side clear button
+      const rem = root.getElementById('remove-file');
+      if (rem) {
+        rem.addEventListener('click', function(){
+          // find hidden "__CLEAR_FILE__" button and click it
+          if (clearBtn) { clearBtn.click(); } else {
+            // fallback: try to clear by clicking a button with that text
+            const btns = Array.from(root.querySelectorAll('button')).filter(b => b.innerText && b.innerText.trim() === '__CLEAR_FILE__');
+            if (btns.length) btns[0].click();
+          }
+        });
+      }
+    } catch(err) {
+      console.warn("GPT UI wiring error:", err);
     }
-  }
-
-  // Inject a + button inside the input shell (left side)
-  function ensurePlus() {
-    const shells = root.querySelectorAll('.input-shell');
-  }
-
-  // Run wiring after small delay to allow Streamlit DOM to mount
-  setTimeout(function(){ wireAttach(); wireGeneric(); }, 500);
+  }, 600);
 })();
 </script>
 """,
     unsafe_allow_html=True,
 )
 
-# Note: Streamlit can't directly listen for our postMessage to clear the file.
-# We'll just clear via session state on the next run if a flag is set.
-if "_clear_file" not in ss: ss._clear_file = False
-
-# Frontend postMessage hook (Streamlit automatically ignores, so emulate via button)
-clear_file = st.button("__HIDDEN_CLEAR_FILE__", key="clear_file_hidden", help="internal")
-if clear_file or ss._clear_file:
+# ---- handle clear file server-side if that hidden button was clicked ----
+# Some Streamlit versions will set the clicked button True; check state key too.
+if st.session_state.get("__clear_file_hidden__", False):
     ss.uploaded_case_text = ""
     ss.uploaded_filename = None
     ss.last_uploaded_file_hash = None
-    ss._clear_file = False
+    # Clear the st.file_uploader value by resetting the key
+    try:
+        st.session_state["case_file"] = None
+    except Exception:
+        pass
     st.experimental_rerun()
 
-# ==========================
-# Handle file upload
-# ==========================
+# ---- file processing when user chooses a file ----
 if uploaded_file is not None:
     max_mb = 10
     if uploaded_file.size > max_mb * 1024 * 1024:
@@ -558,20 +560,27 @@ if uploaded_file is not None:
             except Exception as e:
                 st.error(f"❌ Could not read file: {e}")
 
-# ==========================
-# Submit logic (hidden form button or visible send)
-# ==========================
-if 'submitted_once' not in ss: ss.submitted_once = False
-
-if submitted or st.session_state.get('send_btn_vis'):
-    text = (ss.pending_text or "").strip()
+# ---- sending messages: hidden_submit triggers this block because we used st.form_submit_button ----
+# hidden_submit will be True only during the run where it was clicked (or when visible send triggered it)
+if hidden_submit:
+    # retrieve text content from the text area key
+    text = (st.session_state.get("chat_textarea", "") or "").strip()
+    # if there's attached file content but no text, still allow (we use a default instruction)
+    if not text and ss.uploaded_case_text:
+        text = "Please summarize and generate a judgment based on the attached case."
     if text or ss.uploaded_case_text:
         with st.spinner("Processing …"):
-            response = handle_user_input(text or "Generate legal judgment")
+            response = handle_user_input(text)
+        # append upload note if present
         if ss.uploaded_filename:
             current_chat.append({"role": "user", "message": f"[📎 Uploaded: {ss.uploaded_filename}]"})
+        # append user and assistant messages
         current_chat.append({"role": "user", "message": text})
         current_chat.append({"role": "assistant", "message": response})
+        # update conversation title
         ss.chat_titles[chat_id] = generate_chat_title(text) or "Untitled Case"
-        ss.pending_text = ""
-        st.rerun()
+        # clear textarea (form clear_on_submit True already cleared it)
+        st.experimental_rerun()
+
+# ---- fallback: if visible send HTML button was clicked it triggers hidden_submit via JS so above handles it ----
+# ---- end of app ----
