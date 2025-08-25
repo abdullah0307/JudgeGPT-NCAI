@@ -256,7 +256,6 @@
 #     st.session_state.chat_titles[chat_id] = generate_chat_title(query) or "Untitled Case"
 #     st.rerun()
 
-
 import streamlit as st
 from prompt_router import handle_user_input
 from utils import intent_classifier
@@ -285,15 +284,14 @@ st.markdown(
     --bg-chat: #f9f9f9;
     --bg-sidebar: #ffffff;
     --radius: 18px;
-    --shadow: 0 1px 4px rgba(0,0,0,.08);
 }
 
 html, body, .main {
     background-color: var(--bg-chat);
 }
 .block-container {
-    padding-top: 2rem;
-    padding-bottom: 6rem;
+    padding-top: 1rem;
+    padding-bottom: 7rem;
     max-width: 820px;
     margin: auto;
 }
@@ -302,17 +300,6 @@ html, body, .main {
     background-color: var(--bg-sidebar);
     border-right: 1px solid #e5e7eb;
 }
-.sidebar-card {
-    border-radius: var(--radius);
-    box-shadow: var(--shadow);
-    margin-bottom: .6rem;
-    padding: .5rem;
-    transition: .25s;
-}
-.sidebar-card:hover {
-    box-shadow: 0 2px 12px rgba(0,0,0,.12);
-    transform: translateY(-1px);
-}
 
 .chat-user, .chat-assistant {
     max-width: 85%;
@@ -320,7 +307,6 @@ html, body, .main {
     border-radius: var(--radius);
     margin: 0.8rem 0;
     line-height: 1.5;
-    animation: fadeIn .25s ease-in-out;
     word-wrap: break-word;
     font-size: 0.95rem;
 }
@@ -334,11 +320,8 @@ html, body, .main {
     border: 1px solid #ddd;
     margin-right: auto;
 }
-@keyframes fadeIn {
-    from {opacity: 0; transform: translateY(6px);}
-    to   {opacity: 1; transform: translateY(0);}
-}
 
+/* Sticky input bar */
 .chat-bar {
     position: fixed;
     bottom: 0;
@@ -348,10 +331,11 @@ html, body, .main {
     border-top: 1px solid #ddd;
     padding: .8rem 1.2rem;
     display: flex;
+    align-items: center;
     gap: 0.6rem;
     z-index: 1000;
 }
-.chat-bar textarea {
+.chat-input {
     flex: 1;
     resize: none;
     border-radius: var(--radius);
@@ -360,23 +344,37 @@ html, body, .main {
     font-size: 1rem;
     height: 70px;
 }
-.chat-bar textarea:focus {
+.chat-input:focus {
     outline: none;
     border-color: var(--accent);
     box-shadow: 0 0 0 .15rem rgba(16,163,127,.35);
 }
-.stButton>button {
+.icon-btn {
+    border: none;
+    background: transparent;
+    font-size: 1.4rem;
+    cursor: pointer;
+    color: #555;
+}
+.icon-btn:hover {
+    color: var(--accent);
+}
+.send-btn {
     border-radius: var(--radius);
     font-weight: 600;
     background: var(--accent);
     border: none;
     color: #fff;
-    padding: .6rem 1rem;
-    transition: .25s;
+    padding: .6rem 1.2rem;
+    cursor: pointer;
 }
-.stButton>button:hover {
+.send-btn:hover {
     background: #0e8f6e;
-    transform: translateY(-1px);
+}
+.uploaded-file {
+    font-size: 0.85rem;
+    color: #444;
+    margin-bottom: 0.4rem;
 }
 </style>
 """,
@@ -397,6 +395,8 @@ if "uploaded_case_text" not in st.session_state:
     st.session_state.uploaded_case_text = ""
 if "last_uploaded_file_hash" not in st.session_state:
     st.session_state.last_uploaded_file_hash = None
+if "uploaded_filename" not in st.session_state:
+    st.session_state.uploaded_filename = None
 
 # ---------- sidebar ----------
 with st.sidebar:
@@ -408,6 +408,7 @@ with st.sidebar:
         st.session_state.chat_titles[cid] = "New Case"
         st.session_state.uploaded_case_text = ""
         st.session_state.last_uploaded_file_hash = None
+        st.session_state.uploaded_filename = None
         st.rerun()
 
     for cid in list(st.session_state.chats.keys()):
@@ -421,8 +422,6 @@ st.title("⚖️ PakLaw Judicial Assistant")
 st.caption("Interactive legal assistant for Pakistan’s judicial system.")
 
 # ---------- chat display ----------
-st.markdown("### 📜 Case Discussion & Judgments")
-
 chat_id = st.session_state.current_chat
 current_chat = st.session_state.chats[chat_id]
 
@@ -430,73 +429,71 @@ chat_area = st.container()
 with chat_area:
     for idx, msg in enumerate(current_chat):
         if msg["role"] == "user":
-            st.markdown(
-                f'<div class="chat-user">{msg["message"]}</div>',
-                unsafe_allow_html=True,
-            )
+            st.markdown(f'<div class="chat-user">{msg["message"]}</div>', unsafe_allow_html=True)
         else:
-            html = re.sub(r"(?m)^([A-Z][a-z]+):", r"<strong>\1:</strong>", msg["message"])
-            html = html.replace("\n", "<br>")
-            st.markdown(
-                f'<div class="chat-assistant">{html}</div>',
-                unsafe_allow_html=True,
-            )
+            html = re.sub(r"(?m)^([A-Z][a-z]+):", r"<strong>\\1:</strong>", msg["message"])
+            html = html.replace("\\n", "<br>")
+            st.markdown(f'<div class="chat-assistant">{html}</div>', unsafe_allow_html=True)
             download_agent.show_download_if_applicable(idx, current_chat, intent_classifier.classify_prompt_intent)
 
 # ---------- sticky input ----------
 st.markdown('<div class="chat-bar">', unsafe_allow_html=True)
 
-c1, c2 = st.columns([6, 1])
-with c1:
+# File uploader (hidden, triggered by + button)
+uploaded_file = st.file_uploader(
+    "Upload Case File (.txt or .pdf)",
+    type=["txt", "pdf"],
+    label_visibility="collapsed",
+    key="file_upload",
+)
+
+col1, col2, col3 = st.columns([0.5, 6, 1])
+with col1:
+    st.markdown('<button class="icon-btn">➕</button>', unsafe_allow_html=True)
+
+with col2:
     user_input = st.text_area(
         "Enter your judicial query:",
         key="user_input",
         label_visibility="collapsed",
-        placeholder="Type your legal query here...",
+        placeholder="Type your legal query...",
     )
 
-    st.markdown(
-        "<small style='color: #666;'>Limit: 10MB per file • Max 30 pages • TXT, PDF</small>",
-        unsafe_allow_html=True
-    )
-
-    uploaded_file = st.file_uploader(
-        "📎 Upload Case File (.txt or .pdf)",
-        type=["txt", "pdf"],
-        label_visibility="collapsed"
-    )
-
-    if uploaded_file:
-        max_mb = 10
-        if uploaded_file.size > max_mb * 1024 * 1024:
-            st.error(f"❌ File too large. Max {max_mb} MB allowed.")
-        else:
-            file_bytes = uploaded_file.read()
-            file_hash = hashlib.md5(file_bytes).hexdigest()
-            if st.session_state.last_uploaded_file_hash != file_hash:
-                st.session_state.last_uploaded_file_hash = file_hash
-                try:
-                    if uploaded_file.name.lower().endswith(".txt"):
-                        st.session_state.uploaded_case_text = file_bytes.decode("utf-8")
-                        st.success("✅ Text file loaded.")
-                    else:
-                        reader = PdfReader(BytesIO(file_bytes))
-                        if len(reader.pages) > 30:
-                            st.error("❌ PDF too long. Max 30 pages.")
-                        else:
-                            txt = extract_pdf_text_with_vision(file_bytes)
-                            if not txt or len(txt.strip()) < 50:
-                                st.error("❌ No meaningful text extracted.")
-                            else:
-                                st.session_state.uploaded_case_text = txt[:10_000]
-                                st.success("✅ PDF processed.")
-                except Exception as e:
-                    st.error(f"❌ Could not read file: {e}")
-
-with c2:
+with col3:
     submitted = st.button("Send", use_container_width=True)
 
 st.markdown('</div>', unsafe_allow_html=True)
+
+# Show uploaded file name
+if uploaded_file:
+    max_mb = 10
+    if uploaded_file.size > max_mb * 1024 * 1024:
+        st.error(f"❌ File too large. Max {max_mb} MB allowed.")
+    else:
+        file_bytes = uploaded_file.read()
+        file_hash = hashlib.md5(file_bytes).hexdigest()
+        if st.session_state.last_uploaded_file_hash != file_hash:
+            st.session_state.last_uploaded_file_hash = file_hash
+            try:
+                if uploaded_file.name.lower().endswith(".txt"):
+                    st.session_state.uploaded_case_text = file_bytes.decode("utf-8")
+                    st.session_state.uploaded_filename = uploaded_file.name
+                else:
+                    reader = PdfReader(BytesIO(file_bytes))
+                    if len(reader.pages) > 30:
+                        st.error("❌ PDF too long. Max 30 pages.")
+                    else:
+                        txt = extract_pdf_text_with_vision(file_bytes)
+                        if not txt or len(txt.strip()) < 50:
+                            st.error("❌ No meaningful text extracted.")
+                        else:
+                            st.session_state.uploaded_case_text = txt[:10_000]
+                            st.session_state.uploaded_filename = uploaded_file.name
+            except Exception as e:
+                st.error(f"❌ Could not read file: {e}")
+
+if st.session_state.uploaded_filename:
+    st.markdown(f"<div class='uploaded-file'>📎 {st.session_state.uploaded_filename}</div>", unsafe_allow_html=True)
 
 # ---------- query handler ----------
 if submitted and (user_input or st.session_state.uploaded_case_text):
@@ -504,12 +501,11 @@ if submitted and (user_input or st.session_state.uploaded_case_text):
     with st.spinner("Processing …"):
         response = handle_user_input(query)
 
-    if uploaded_file and uploaded_file.size <= 10 * 1024 * 1024:
-        current_chat.append({"role": "user", "message": f"[📎 Uploaded: {uploaded_file.name}]"})
+    if st.session_state.uploaded_filename:
+        current_chat.append({"role": "user", "message": f"[📎 Uploaded: {st.session_state.uploaded_filename}]"})
 
     current_chat.append({"role": "user", "message": query})
     current_chat.append({"role": "assistant", "message": response})
 
     st.session_state.chat_titles[chat_id] = generate_chat_title(query) or "Untitled Case"
     st.rerun()
-
