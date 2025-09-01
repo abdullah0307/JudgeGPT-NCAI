@@ -156,17 +156,18 @@ from Agents import download_agent
 app = FastAPI(title="PakLaw Judicial Assistant API")
 
 # ---------- CORS Configuration ----------
+# CORS configuration
 origins = [
-    "http://localhost:3000",       # Next.js local dev
-    "https://your-frontend-domain.com",  # <-- replace with deployed frontend domain
+    "*"  # Allow all origins
 ]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["*"],  # Allow all methods
     allow_headers=["*"],
+    expose_headers=["*"]
 )
 
 # ---------- In-memory session store ----------
