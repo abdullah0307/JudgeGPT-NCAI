@@ -17,28 +17,47 @@
 # CMD ["streamlit", "run", "main.py", "--server.port=8080", "--server.address=0.0.0.0"]
 
 
+# FROM python:3.12-slim
+
+# # Set working directory
+# WORKDIR /app
+
+# # Install dependencies
+# COPY requirements.txt .
+# RUN pip install --no-cache-dir -r requirements.txt
+
+# # Copy all app files   best
+# COPY . .
+
+# # Expose port (Cloud Run expects this, but real binding comes from $PORT)
+# EXPOSE 8080
+
+# # Run Streamlit app (use Cloud Run's PORT env variable)
+# CMD ["sh", "-c", "streamlit run main.py --server.port=$PORT --server.address=0.0.0.0"]
+
+
+
+
+
 FROM python:3.12-slim
 
-# Set working directory
 WORKDIR /app
 
-# Install dependencies
+# Install system deps for PDFs & OCR
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    poppler-utils \
+    tesseract-ocr \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy all app files
 COPY . .
 
-# Expose port (Cloud Run expects this, but real binding comes from $PORT)
 EXPOSE 8080
 
-# Run Streamlit app (use Cloud Run's PORT env variable)
-CMD ["sh", "-c", "streamlit run main.py --server.port=$PORT --server.address=0.0.0.0"]
-
-
-
-
-
+CMD ["sh", "-c", "uvicorn api:app --host 0.0.0.0 --port $PORT"]
 
 
 
