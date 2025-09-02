@@ -465,5 +465,15 @@ async def websearch_endpoint(query: str = Query(..., min_length=3, description="
         return {"query": query, "summary": summary}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+# api.py — add this at the bottom
+@app.post("/rename_all_chats")
+async def rename_all_chats():
+    renamed_sessions = {}
+    for session_id, session in sessions.items():
+        if session["chats"]:
+            latest_input = session["chats"][-1]["message"]
+            session["chat_title"] = generate_title_from_prompt(latest_input) or "Untitled Case"
+            renamed_sessions[session_id] = session["chat_title"]
+    return {"renamed_sessions": renamed_sessions}
 
 
