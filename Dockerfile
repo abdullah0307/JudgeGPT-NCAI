@@ -17,24 +17,6 @@
 # CMD ["streamlit", "run", "main.py", "--server.port=8080", "--server.address=0.0.0.0"]
 
 
-FROM python:3.12-slim
-
-# Set working directory
-WORKDIR /app
-
-# Install dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy all app files   best
-COPY . .
-
-# Expose port (Cloud Run expects this, but real binding comes from $PORT)
-EXPOSE 8080
-
-# Run Streamlit app (use Cloud Run's PORT env variable)
-CMD ["sh", "-c", "streamlit run main.py --server.port=$PORT --server.address=0.0.0.0"]
-
 # FROM python:3.12-slim
 
 # # Set working directory
@@ -44,14 +26,32 @@ CMD ["sh", "-c", "streamlit run main.py --server.port=$PORT --server.address=0.0
 # COPY requirements.txt .
 # RUN pip install --no-cache-dir -r requirements.txt
 
-# # Copy all app files   
+# # Copy all app files   best
 # COPY . .
 
 # # Expose port (Cloud Run expects this, but real binding comes from $PORT)
 # EXPOSE 8080
 
-# # Run FastAPI app (use Cloud Run's PORT env variable)
-# CMD ["sh", "-c", "uvicorn api:app --host 0.0.0.0 --port $PORT"] test
+# # Run Streamlit app (use Cloud Run's PORT env variable)
+# CMD ["sh", "-c", "streamlit run main.py --server.port=$PORT --server.address=0.0.0.0"]
+
+FROM python:3.12-slim
+
+# Set working directory
+WORKDIR /app
+
+# Install dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy all app files   
+COPY . .
+
+# Expose port (Cloud Run expects this, but real binding comes from $PORT)
+EXPOSE 8080
+
+# Run FastAPI app (use Cloud Run's PORT env variable)
+CMD ["sh", "-c", "uvicorn api:app --host 0.0.0.0 --port $PORT"] 
 
 
 
