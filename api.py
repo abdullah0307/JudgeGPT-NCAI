@@ -292,6 +292,9 @@
 # api.py
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.responses import JSONResponse, FileResponse
+from fastapi.middlewar# api.py
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Query
+from fastapi.responses import JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from io import BytesIO
 from PyPDF2 import PdfReader
@@ -300,6 +303,7 @@ import hashlib, uuid, os
 from prompt_router import handle_user_input, generate_title_from_prompt
 from Agents import download_agent
 from Agents.ocrapp import extract_pdf_text_with_vision, extract_image_text_with_easyocr
+from websearch import websearch_with_citations  # <- new import
 
 app = FastAPI(title="PakLaw Judicial Assistant API")
 
@@ -425,7 +429,6 @@ async def get_session_data(session_id: str):
     return sessions[session_id]
 
 
-# ---------- Download Generated Document ----------
 @app.get("/download/{session_id}")
 async def download_generated_document(session_id: str):
     session = get_session(session_id)
@@ -433,11 +436,10 @@ async def download_generated_document(session_id: str):
         raise HTTPException(status_code=400, detail="No chats to generate document from.")
 
     content = "\n\n".join([f"{c['role'].upper()}: {c['message']}" for c in session["chats"]])
-    file_path = download_agent.create_pdf_from_text(content, session_id)  # implement in download_agent
+    file_path = download_agent.create_pdf_from_text(content, session_id)
     return FileResponse(file_path, filename=f"{session['chat_title']}.pdf", media_type="application/pdf")
 
 
-# ---------- Optional Batch Upload ----------
 @app.post("/batch_upload")
 async def batch_upload(session_id: str = Form(...), uploaded_files: list[UploadFile] = File(...)):
     session = get_session(session_id)
@@ -450,4 +452,18 @@ async def batch_upload(session_id: str = Form(...), uploaded_files: list[UploadF
             return JSONResponse(status_code=e.status_code, content={"error": f"{f.filename}: {e.detail}"})
     session["uploaded_case_text"] = combined_text[:MAX_UPLOADED_TEXT_LENGTH]
     return {"message": "Batch files processed successfully."}
+
+
+# ---------- Web Search Endpoint ----------
+@app.get("/websearch")
+async def websearch_endpoint(query: str = Query(..., min_length=3, description="Search query")):
+    """
+    Perform a web search and return a GPT-based summary with citations.
+    """
+    try:
+        summary = websearch_with_citations(query)
+        return {"query": query, "summary": summary}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
