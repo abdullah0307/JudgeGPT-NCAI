@@ -302,6 +302,7 @@ import hashlib, uuid, os
 
 from prompt_router import handle_user_input, generate_title_from_prompt
 from Agents import download_agent
+# Updated
 from Agents.ocrapp import extract_pdf_text_with_vision, extract_image_text_with_easyocr
 from websearch import websearch_with_citations  # <- new import
 
@@ -338,7 +339,7 @@ def get_session(session_id: str):
     return sessions[session_id]
 
 
-# ---------- File processing ----------
+
 def process_uploaded_file(file: UploadFile):
     file_bytes = file.file.read()
     file_hash = hashlib.md5(file_bytes).hexdigest()
@@ -355,23 +356,35 @@ def process_uploaded_file(file: UploadFile):
         return text, file_hash
 
     elif filename_lower.endswith(".pdf"):
+        # PDF page count check
         reader = PdfReader(BytesIO(file_bytes))
         if len(reader.pages) > MAX_PDF_PAGES:
             raise HTTPException(status_code=400, detail=f"PDF too long. Max {MAX_PDF_PAGES} pages.")
-        text = extract_pdf_text_with_vision(file_bytes)
+
+        # Extract text using Google Vision-based OCR
+        try:
+            text = extract_pdf_text_with_vision(file_bytes)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to extract text from PDF: {e}")
+
         if not text or len(text.strip()) < 50:
             raise HTTPException(status_code=400, detail="No meaningful text extracted from PDF.")
+
         return text[:MAX_UPLOADED_TEXT_LENGTH], file_hash
 
     elif filename_lower.endswith((".png", ".jpg", ".jpeg")):
-        text = extract_image_text_with_easyocr(file_bytes)
+        try:
+            text = extract_image_text_with_easyocr(file_bytes)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to extract text from image: {e}")
+
         if not text or len(text.strip()) < 10:
             raise HTTPException(status_code=400, detail="No meaningful text extracted from image.")
+
         return text[:MAX_UPLOADED_TEXT_LENGTH], file_hash
 
     else:
         raise HTTPException(status_code=400, detail="Unsupported file type. Only TXT, PDF, JPG, PNG allowed.")
-
 
 # ---------- API Endpoints ----------
 
