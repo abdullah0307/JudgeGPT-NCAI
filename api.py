@@ -289,19 +289,16 @@
 #         raise HTTPException(status_code=404, detail="Session not found.")
 #     return sessions[session_id]   BESTTTTTTTTTT
 
-# api.py
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
-from fastapi.responses import JSONResponse, FileResponse
+
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Query
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from io import BytesIO
 from PyPDF2 import PdfReader
 import hashlib, uuid, os
-
+import tempfile
 from prompt_router import handle_user_input, generate_title_from_prompt
 from Agents import download_agent
-# Updated
 from Agents.ocrapp import extract_pdf_text_with_vision, extract_text_with_vision
 from Agents.websearch import websearch_with_citations  # <- new import
 
@@ -441,15 +438,34 @@ async def get_session_data(session_id: str):
     return sessions[session_id]
 
 
+
 @app.get("/download/{session_id}")
 async def download_generated_document(session_id: str):
-    session = get_session(session_id)
-    if not session["chats"]:
+    session = get_session(session_id)  # assume you have this function
+    if not session.get("chats"):
         raise HTTPException(status_code=400, detail="No chats to generate document from.")
 
-    content = "\n\n".join([f"{c['role'].upper()}: {c['message']}" for c in session["chats"]])
-    file_path = download_agent.create_pdf_from_text(content, session_id)
-    return FileResponse(file_path, filename=f"{session['chat_title']}.pdf", media_type="application/pdf")
+    # Take the last message (or modify logic to pick relevant one)
+    last_idx = len(session["chats"]) - 1
+    user_msg = session["chats"][last_idx - 1]["message"] if last_idx > 0 else ""
+    intent = download_agent.intent_func(user_msg)  # assume you have intent_func
+
+    # Determine filename
+    if any(keyword in user_msg.lower() for keyword in ["petition", "draft petition", "generate petition"]):
+        filename = "petition.txt"
+    else:
+        filename = f"{intent.replace(' ', '_').lower()}.txt" if intent in download_agent.DOWNLOADABLE_COMMANDS else "response.txt"
+
+    # Get the content for download
+    content = session["chats"][last_idx]["message"]
+
+    # Save to a temporary file
+    tmp_dir = tempfile.gettempdir()
+    file_path = os.path.join(tmp_dir, filename)
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(content)
+
+    return FileResponse(file_path, filename=filename, media_type="text/plain")
 
 
 @app.post("/batch_upload")
@@ -487,5 +503,7 @@ async def rename_all_chats():
             session["chat_title"] = generate_title_from_prompt(latest_input) or "Untitled Case"
             renamed_sessions[session_id] = session["chat_title"]
     return {"renamed_sessions": renamed_sessions}
+
+
 
 
