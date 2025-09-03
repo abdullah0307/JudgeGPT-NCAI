@@ -302,7 +302,7 @@ import hashlib, uuid, os
 from prompt_router import handle_user_input, generate_title_from_prompt
 from Agents import download_agent
 # Updated
-from Agents.ocrapp import extract_pdf_text_with_vision, extract_image_text_with_easyocr
+from Agents.ocrapp import extract_pdf_text_with_vision, extract_text_with_vision
 from Agents.websearch import websearch_with_citations  # <- new import
 
 app = FastAPI(title="PakLaw Judicial Assistant API")
@@ -373,7 +373,7 @@ def process_uploaded_file(file: UploadFile):
 
     elif filename_lower.endswith((".png", ".jpg", ".jpeg")):
         try:
-            text = extract_image_text_with_easyocr(file_bytes)
+            text = extract_text_with_vision(file_bytes)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to extract text from image: {e}")
 
