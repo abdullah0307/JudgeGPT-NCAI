@@ -304,7 +304,7 @@ from prompt_router import handle_user_input, generate_title_from_prompt
 from Agents import download_agent
 # Updated
 from Agents.ocrapp import extract_pdf_text_with_vision, extract_image_text_with_easyocr
-from websearch import websearch_with_citations  # <- new import
+from Agents.websearch import websearch_with_citations  # <- new import
 
 app = FastAPI(title="PakLaw Judicial Assistant API")
 
