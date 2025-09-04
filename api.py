@@ -495,14 +495,21 @@ async def websearch_endpoint(query: str = Query(..., min_length=3, description="
         raise HTTPException(status_code=500, detail=str(e))
 # api.py — add this at the bottom
 @app.post("/rename_all_chats")
-async def rename_all_chats():
-    renamed_sessions = {}
-    for session_id, session in sessions.items():
-        if session["chats"]:
-            latest_input = session["chats"][-1]["message"]
-            session["chat_title"] = generate_title_from_prompt(latest_input) or "Untitled Case"
-            renamed_sessions[session_id] = session["chat_title"]
-    return {"renamed_sessions": renamed_sessions}
+
+async def rename_chat(session_id: str, user_prompt: str):
+    """
+    Renames a single chat session based on the latest user input.
+    """
+    if session_id not in sessions:
+        return {"error": "Session not found"}
+
+    # Generate new title from the user prompt
+    new_title = generate_chat_title(user_prompt) or "Untitled Case"
+
+    # Update session
+    sessions[session_id]["chat_title"] = new_title
+
+    return {"session_id": session_id, "new_name": new_title}
 
 
 
