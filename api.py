@@ -504,7 +504,7 @@ async def rename_chat(session_id: str, user_prompt: str):
         return {"error": "Session not found"}
 
     # Generate new title from the user prompt
-    new_title = generate_chat_ttitle(user_prompt) or "Untitled Case"
+    new_title = generate_chat_title(user_prompt) or "Untitled Case"
 
     # Update session
     sessions[session_id]["chat_title"] = new_title
