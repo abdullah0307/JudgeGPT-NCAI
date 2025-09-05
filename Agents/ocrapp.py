@@ -73,24 +73,51 @@ import json
 #     json.dump(json.loads(st.secrets["google_cloud"]["credentials"]), f)
 
 
+# import os, json
+
+# creds_str = os.getenv("GOOGLE_CLOUD_CREDENTIALS")
+# if not creds_str:
+#     raise RuntimeError("GOOGLE_CLOUD_CREDENTIALS not found.")
+
+# # Remove leading/trailing triple quotes if present
+# creds_str = creds_str.strip().strip('"""').strip()
+
+# # Now parse JSON
+# creds_data = json.loads(creds_str)
+
+# # Write to file for GCP SDK
+# with open("gcloud_key.json", "w") as f:
+#     json.dump(creds_data, f)
+
+# os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "gcloud_key.json"
+
 import os, json
 
 creds_str = os.getenv("GOOGLE_CLOUD_CREDENTIALS")
 if not creds_str:
+    print("❌ GOOGLE_CLOUD_CREDENTIALS not found.")
     raise RuntimeError("GOOGLE_CLOUD_CREDENTIALS not found.")
 
-# Remove leading/trailing triple quotes if present
-creds_str = creds_str.strip().strip('"""').strip()
+try:
+    # Remove leading/trailing triple quotes if present
+    creds_str = creds_str.strip().strip('"""').strip()
 
-# Now parse JSON
-creds_data = json.loads(creds_str)
+    # Now parse JSON
+    creds_data = json.loads(creds_str)
 
-# Write to file for GCP SDK
-with open("gcloud_key.json", "w") as f:
-    json.dump(creds_data, f)
+    # Write to file for GCP SDK
+    with open("gcloud_key.json", "w") as f:
+        json.dump(creds_data, f)
 
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "gcloud_key.json"
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "gcloud_key.json"
+    print("✅ Google Cloud credentials successfully loaded and saved to gcloud_key.json")
 
+except json.JSONDecodeError as e:
+    print(f"❌ Failed to parse GOOGLE_CLOUD_CREDENTIALS as JSON: {e}")
+    raise
+except Exception as e:
+    print(f"❌ Unexpected error while loading credentials: {e}")
+    raise
 
 
 
@@ -138,6 +165,7 @@ def extract_pdf_text_with_vision(pdf_bytes) -> str:
                 st.error(error_msg)
 
     return "\n\n".join(all_text)
+
 
 
 
