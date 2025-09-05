@@ -14,3 +14,4 @@ requests
 aiohttp
 python-dotenv
 reportlab
+pydantic
