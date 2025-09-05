@@ -104,8 +104,25 @@ def get_vision_client():
 
 
 @st.cache_resource(show_spinner="Converting PDF...")
-def convert_pdf_to_images(pdf_bytes):
-    return convert_from_bytes(pdf_bytes, dpi=300)  # Higher DPI for better OCR
+# def convert_pdf_to_images(pdf_bytes):
+#     return convert_from_bytes(pdf_bytes, dpi=300)  # Higher DPI for better OCR
+
+import fitz  # PyMuPDF
+from PIL import Image
+import io
+
+def convert_pdf_to_images(pdf_bytes, dpi=300):
+    """Convert PDF to images using PyMuPDF (no Poppler required)."""
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    images = []
+    for page_num in range(len(doc)):
+        page = doc[page_num]
+        mat = fitz.Matrix(dpi/72, dpi/72)  # scale to DPI
+        pix = page.get_pixmap(matrix=mat)
+        img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+        images.append(img)
+    return images
+
 
 def extract_text_with_vision(image: Image.Image) -> str:
     client = get_vision_client() 
@@ -138,6 +155,7 @@ def extract_pdf_text_with_vision(pdf_bytes) -> str:
                 st.error(error_msg)
 
     return "\n\n".join(all_text)
+
 
 
 
