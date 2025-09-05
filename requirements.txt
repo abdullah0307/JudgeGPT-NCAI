@@ -4,7 +4,6 @@ python-multipart
 PyPDF2>=3.0.0
 pymupdf
 pdf2image
-easyocr
 pillow
 numpy
 google-cloud-vision>=3.7.2
