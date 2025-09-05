@@ -353,7 +353,9 @@ def process_uploaded_file(file: UploadFile):
 
     elif filename_lower.endswith(".pdf"):
         # PDF page count check
+        print("HEllo1")
         reader = PdfReader(BytesIO(file_bytes))
+        print("HEllo2")     
         if len(reader.pages) > MAX_PDF_PAGES:
             raise HTTPException(status_code=400, detail=f"PDF too long. Max {MAX_PDF_PAGES} pages.")
 
