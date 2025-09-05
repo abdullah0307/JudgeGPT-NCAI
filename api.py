@@ -498,27 +498,25 @@ async def websearch_endpoint(query: str = Query(..., min_length=3, description="
         return {"query": query, "summary": summary}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-# api.py — add this at the bottom
+from pydantic import BaseModel
+
+class RenameRequest(BaseModel):
+    session_id: str
+    user_prompt: str
+
 @app.post("/rename_all_chats")
-async def rename_chat(
-    session_id: str = Form(...),
-    user_prompt: str = Form(...),
-):
-    """
-    Renames a single chat session based on the latest user input.
-    """
-    if session_id not in sessions:
+async def rename_chat(req: RenameRequest):
+    if req.session_id not in sessions:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    # ✅ use generate_chat_title here
-    new_title = generate_chat_title(user_prompt) or "Untitled Case"
-
-    sessions[session_id]["chat_title"] = new_title
+    new_title = generate_chat_title(req.user_prompt) or "Untitled Case"
+    sessions[req.session_id]["chat_title"] = new_title
 
     return {
-        "session_id": session_id,
+        "session_id": req.session_id,
         "new_name": new_title,
     }
+
 
 
 
