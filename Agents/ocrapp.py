@@ -103,14 +103,11 @@ def get_vision_client():
 # ➕ your other code here...
 
 
-@st.cache_resource(show_spinner="Converting PDF...")
 # def convert_pdf_to_images(pdf_bytes):
 #     return convert_from_bytes(pdf_bytes, dpi=300)  # Higher DPI for better OCR
 
 import fitz  # PyMuPDF
-from PIL import Image
-import io
-
+@st.cache_resource(show_spinner="Converting PDF...")
 def convert_pdf_to_images(pdf_bytes, dpi=300):
     """Convert PDF to images using PyMuPDF (no Poppler required)."""
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
@@ -155,6 +152,7 @@ def extract_pdf_text_with_vision(pdf_bytes) -> str:
                 st.error(error_msg)
 
     return "\n\n".join(all_text)
+
 
 
 
