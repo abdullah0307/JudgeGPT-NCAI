@@ -68,7 +68,7 @@ from PIL import Image
 import streamlit as st
 import os
 import json
-
+print("Hello")
 # with open("gcloud_key.json", "w") as f:
 #     json.dump(json.loads(st.secrets["google_cloud"]["credentials"]), f)
 
@@ -165,6 +165,7 @@ def extract_pdf_text_with_vision(pdf_bytes) -> str:
                 st.error(error_msg)
 
     return "\n\n".join(all_text)
+
 
 
 
