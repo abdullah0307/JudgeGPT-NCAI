@@ -2,10 +2,10 @@ fastapi
 uvicorn[standard]
 python-multipart
 PyPDF2>=3.0.0
-pymupdf
+PyMuPDF
 pdf2image
 easyocr
-pillow
+Pillow
 numpy
 google-cloud-vision>=3.7.2
 beautifulsoup4
