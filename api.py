@@ -386,7 +386,7 @@ def process_uploaded_file(file: UploadFile):
 
 # ---------- API Endpoints ----------
 
-from title_generator import generate_chat_title  # <-- import this
+from Agents.title_generator import generate_chat_title  # <-- import this
 
 @app.post("/chat")
 async def chat(
