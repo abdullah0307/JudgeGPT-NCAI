@@ -297,7 +297,7 @@ from io import BytesIO
 from PyPDF2 import PdfReader
 import hashlib, uuid, os
 import tempfile
-from prompt_router import handle_user_input, generate_title_from_prompt
+from prompt_router import handle_user_input
 from Agents import download_agent
 from Agents.ocrapp import extract_pdf_text_with_vision, extract_text_with_vision
 from Agents.websearch import websearch_with_citations  # <- new import
@@ -386,6 +386,8 @@ def process_uploaded_file(file: UploadFile):
 
 # ---------- API Endpoints ----------
 
+from title_generator import generate_chat_title  # <-- import this
+
 @app.post("/chat")
 async def chat(
     session_id: str = Form(...),
@@ -417,7 +419,8 @@ async def chat(
         session["chats"].append({"role": "user", "message": user_input})
     session["chats"].append({"role": "assistant", "message": response})
 
-    session["chat_title"] = generate_title_from_prompt(final_input) or "Untitled Case"
+    # ✅ use generate_chat_title here
+    session["chat_title"] = generate_chat_title(final_input) or "Untitled Case"
 
     return {
         "session_id": session_id,
@@ -497,21 +500,25 @@ async def websearch_endpoint(query: str = Query(..., min_length=3, description="
         raise HTTPException(status_code=500, detail=str(e))
 # api.py — add this at the bottom
 @app.post("/rename_all_chats")
-
-async def rename_chat(session_id: str, user_prompt: str):
+async def rename_chat(
+    session_id: str = Form(...),
+    user_prompt: str = Form(...),
+):
     """
     Renames a single chat session based on the latest user input.
     """
     if session_id not in sessions:
-        return {"error": "Session not found"}
+        raise HTTPException(status_code=404, detail="Session not found")
 
-    # Generate new title from the user prompt
+    # ✅ use generate_chat_title here
     new_title = generate_chat_title(user_prompt) or "Untitled Case"
 
-    # Update session
     sessions[session_id]["chat_title"] = new_title
 
-    return {"session_id": session_id, "new_name": new_title}
+    return {
+        "session_id": session_id,
+        "new_name": new_title,
+    }
 
 
 
